@@ -52,9 +52,9 @@ function resize-docker-lv() {
 
 	lvreduce -r -L -${LV_SIZE} /dev/${VG_NAME}/${LV_NAME}
 
-	cat <<EOF >> /etc/sysconfig/docker-storage-setup
-	VG=${VG_NAME}
-	EOF
+cat <<EOF >> /etc/sysconfig/docker-storage-setup
+VG=${VG_NAME}
+EOF
 
 	docker-storage-setup
 
