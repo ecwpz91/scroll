@@ -1,0 +1,31 @@
+:~$ cd workspace
+:~$ cd project 2
+:~$ cd src
+:~$ javac Driver.java
+:~$ java Driver sample2.txt
+Group 1
+     croatian raincoat 
+Group 2
+     parental paternal prenatal 
+Group 3
+     sinatra tsarina 
+Group 4
+     earringed rereading 
+Group 5
+     eatings seating teasing 
+Group 6
+     manlier mineral railmen 
+Group 7
+     rattles starlet startle 
+Group 8
+     disowned downside 
+Group 9
+     resuspend suspender unpressed 
+Group 10
+     peelings sleeping 
+Group 11
+     lionesses noiseless 
+Group 12
+     eviler relive revile verile 
+Group 13
+     kirsten stinker striken tinkers 

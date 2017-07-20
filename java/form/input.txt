@@ -1,0 +1,11 @@
+127.0.0.1 - - [2000-09-22:13:55:33 -0700] "GET http://www.cs.gmu.edu/~kdobolyi/nameForm.php?firstname=kinga&lastname=dobolyi" 200 2326
+127.0.0.1 - - [2000-04-22:13:55:35 -0700] "GET http://www.cs.gmu.edu/~kdobolyi/preferenceForm.php?username=kdobolyi&sessionID=66732att2y&address=4440%20Engineering%20Building%2C%20Fairfax%20VA%2022212" 200 2326
+127.0.0.1 - - [2000-05-22:13:53:12 -0700] "GET http://www.cs.gmu.edu/~kdobolyi/nameForm.php?firstname=david&lastname=dobolyi" 240 2326
+127.0.0.1 - - [2000-06-22:13:55:36 -0700] "GET http://www.cs.gmu.edu/~kdobolyi/loginForm.php?username=kdobo&firstname=kinga&sessionID=11&lastname=dobolyi" 200 2326
+127.0.0.1 - - [2000-07-22:13:55:16 -0700] "GET http://www.cs.gmu.edu/~kdobolyi/otherForm.php?username=hello&firstname=kinga&lastname=dobolyi&sessionID=11&option=3" 200 2326
+127.0.0.1 - - [2000-08-22:14:55:36 -0700] "GET http://www.cs.gmu.edu/~kdobolyi/loginForm.php?sessionID=11&firstname=joe&lastname=dobolyi&username=kdobolyi" 200 2326
+127.0.0.1 - - [2000-10-22:13:55:36 -0700] "GET http://www.cs.gmu.edu/~kdobolyi/preferenceForm.php?sessionID=11&firstname=kinga&username=dobolyi" 404 2326
+127.0.0.1 - - [2000-12-22:13:55:36 -0700] "GET http://www.cs.gmu.edu/~kdobolyi/nameForm.php?firstname=kinga&lastname=dobolyi" 200 2326
+127.0.0.1 - - [2000-09-22:14:55:36 -0700] "GET http://www.cs.gmu.edu/~kdobolyi/nameForm.php?firstname=kinga&lastname=dobolyi" 345 2326
+127.0.0.1 - - [2000-09-22:15:55:36 -0700] "GET http://www.cs.gmu.edu/~kdobolyi/otherForm.php?sessionID=11&firstname=kinga&lastname=dobolyi&username=david" 200 2326
+127.0.0.1 - - [2000-09-22:16:55:36 -0700] "GET http://www.cs.gmu.edu/~kdobolyi/loginForm.php?sessionID=11&firstname=joe&lastname=smith&username=david" 200 2326

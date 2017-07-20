@@ -1,0 +1,642 @@
+#!/bin/bash
+
+function ocp-base(){
+	sudo yum -y install net-tools bind-utils iptables-services bridge-utils bash-completion gcc python-virtualenv
+}
+
+function ocp-util() {
+	# Install the following package, which provides OpenShift Container Platform utilities
+	# and pulls in other tools required by the quick and advanced installation methods, such
+	# as Ansible and related configuration files.
+	sudo yum -y install atomic-openshift-utils
+
+	# Install the following *-excluder packages on each RHEL 7 system, which helps ensure
+	# your systems stay on the correct versions of atomic-openshift and docker packages when
+	# you are not trying to upgrade, according to the OpenShift Container Platform version.
+	sudo yum -y install atomic-openshift-excluder atomic-openshift-docker-excluder
+
+	# The *-excluder packages add entries to the exclude directive in the host’s /etc/yum.conf file when
+	# installed. Run the following command on each host to remove the atomic-openshift packages from the
+	# list for the duration of the installation.
+	sudo atomic-openshift-excluder unexclude
+
+	# Install docker.
+	sudo yum -y install docker
+}
+
+function ocp-metrics() {
+	# Execute under the 'openshift-infra' project.
+	oc project openshift-infra
+
+	#  Create a 'metrics-deployer' service account.
+oc create -f - <<API
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+name: metrics-deployer
+secrets:
+- name: metrics-deployer
+API
+
+	# Grant the 'metrics-deployer' service account edit permission for the 'openshift-infra' project.
+	oadm policy add-role-to-user \
+	edit system:serviceaccount:openshift-infra:metrics-deployer
+
+	# Grant the 'heapster' service account cluster-reader permission for all available nodes.
+	oadm policy add-cluster-role-to-user \
+	cluster-reader system:serviceaccount:openshift-infra:heapster
+
+	# Grant the 'hawkular' service account view permission for all available nodes.
+	oc adm policy add-role-to-user view system:serviceaccount:openshift-infra:hawkular -n openshift-infra
+
+	# Use generated self-signed certs for metrics deployer
+	oc secrets new metrics-deployer nothing=/dev/null
+
+	# Deploy development env metrics component
+	pushd /usr/share/openshift/examples/infrastructure-templates/enterprise;
+	oc new-app -f metrics-deployer.yaml \
+	-p MASTER_URL=https://"$(hostname -f)":8443 \
+	-p HAWKULAR_METRICS_HOSTNAME=hawkular-metrics.example.com \
+	-p CASSANDRA_PV_SIZE=3Gi \
+	-p IMAGE_PREFIX=openshift/origin- \
+	-p IMAGE_VERSION=latest
+	popd;
+
+	#  assetConfig:
+	#    ...
+	#    metricsPublicURL: "https://hawkular-metrics.example.com/hawkular/metrics"
+}
+
+function ocp-logging() {
+	# Execute under the 'logging' project.
+	oc project logging
+
+	# Create the logging service accounts and custom roles:
+	oc new-app logging-deployer-account-template
+
+	# Enable the deployer service account to create an OAuthClient for Kibana
+	oadm policy add-cluster-role-to-user oauth-editor \
+	system:serviceaccount:logging:logging-deployer
+
+	# Enable the Fluentd service account to mount and read system logs
+	oadm policy add-scc-to-user privileged  \
+	system:serviceaccount:logging:aggregated-logging-fluentd
+
+	oadm policy add-cluster-role-to-user cluster-reader \
+	system:serviceaccount:logging:aggregated-logging-fluentd
+
+	# Deploy development env logging component
+	pushd /usr/share/openshift/examples/infrastructure-templates/enterprise;
+	oc new-app logging-deployer-template \
+	-p MASTER_URL=https://"$(hostname -f)":8443 \
+	-p KIBANA_HOSTNAME=kibana.example.com \
+	-p KIBANA_OPS_HOSTNAME=kibana-ops.example.com \
+	-p ES_CLUSTER_SIZE=1 \
+	-p PUBLIC_MASTER_URL=https://master.example.com:8443;
+	popd;
+
+	#  assetConfig:
+	#    ...
+	#    loggingPublicURL: "https://kibana.example.com"
+
+	oc label node --all logging-infra-fluentd=true
+
+	# Uninstall and Reinstall
+	# oc new-app logging-deployer-template -p MODE=uninstall
+}
+
+function ocp-metrics-del() {
+	oc delete all --selector="metrics-infra" \
+	&& oc delete sa --selector="metrics-infra" \
+	&& oc delete templates --selector="metrics-infra" \
+	&& oc delete secrets --selector="metrics-infra" \
+	&& oc delete pvc --selector="metrics-infra" \
+	&& oc delete sa metrics-deployer \
+	&& oc delete secret metrics-deployer
+}
+
+function ocp-logging-del() {
+	# You can also typically do so manually:
+	oc delete all,sa,oauthclient,daemonset,configmap --selector logging-infra=support
+	oc delete secret logging-fluentd logging-elasticsearch \
+	logging-elasticsearch logging-kibana \
+	logging-kibana-proxy
+
+	# Replace the OAuthClient entry
+	oc delete oauthclient/kibana-proxy
+}
+
+function ocp-dotnet() {
+	# Enable the `rhel-7-server-dotnet-rpms` repository.
+	sudo subscription-manager repos --enable=rhel-7-server-dotnet-rpms
+
+	# Verify system subscriptions.
+	sudo subscription-manager list --consumed
+
+	# Install the `scl` tool.
+	sudo yum -y install scl-utils
+
+	# Get the most current version of all packages.
+	sudo yum-clean-update
+
+	# Install .NET Core 1.0.0 and all of its dependencies.
+	sudo yum -y install rh-dotnetcore10
+
+}
+
+function ocp-mbaas() {
+	# Enable the rhel-7-server-optional-rpms repository.
+	sudo subscription-manager repos --enable=rhel-7-server-optional-rpms
+
+	# Verify system subscriptions.
+	sudo subscription-manager list --consumed
+
+	# Install the RHSM plugin subscription-manager-plugin-container.
+	sudo yum -y install subscription-manager-plugin-container
+
+	# Run rhsmcertd-worker to refresh the local certificate store.
+	sudo /usr/libexec/rhsmcertd-worker
+
+	# Verify downloaded certificates.
+	sudo ls -l /etc/docker/certs.d/ | grep access.redhat.com
+
+	# Get the most current version of all packages.
+	sudo yum-clean-update
+}
+
+function ocp-init() {
+	# SSH into master host system.
+
+	# Subscribe environment (if not already).
+	sudo subscription-manager register --username $USERNAME --password $PASSWORD
+
+	# Attach the subscription that provides access to the OpenShift repository.
+	sudo subscription-manager subscribe --pool=$POOL_ID
+
+	# Disable all unnecessary repositories.
+	sudo subscription-manager repos --disable="*"
+
+	# Enable OSE 3.2 repositories.
+	sudo subscription-manager repos --enable="rhel-7-server-rpms" \
+	--enable="rhel-7-server-extras-rpms" \
+	--enable="rhel-7-server-ose-3.4-rpms"
+
+	# Verify system subscriptions.
+	sudo subscription-manager list --consumed
+
+	# Install wget & git utilities.
+	sudo yum -y install wget git
+
+	# Setup custom bash environment.
+	pushd /tmp
+	sudo git clone https://github.com/ecwpz91/codex.git
+	sudo cp -r /tmp/codex/bin /root
+	sudo cp /tmp/codex/.bashrc /root
+	sudo cp /tmp/codex/.bashrc_custom /root
+	popd
+
+	# Clean temp folder contents.
+	sudo rm -rf /tmp/*
+
+	# Install OSE 3.2 packages
+	sudo install-base-pkgs
+	sudo install-epel-pkgs
+	sudo yum -y install rlwrap --enablerepo=epel
+
+	# Get the most current version of all packages.
+	sudo yum-clean-update
+
+	# Install OSE 3.2 packages (remainder)
+	sudo install-util-pkgs
+}
+
+function ocp-reg-console() {
+	# Create a passthrough route in the default project.
+	oc create route passthrough --service registry-console \
+	--port registry-console \
+	-n default
+
+	# Expose insecure registry
+	oc create route edge --service docker-registry -n default
+
+	# Log in as sys admin
+	oc login -u system:admin
+
+	# Add system:registry role
+	oadm policy add-role-to-user system:registry developer
+
+	# Add admin role for the project associated with the Docker operation.
+	oadm policy add-role-to-user admin developer -n default
+
+	# Add system:image-builder role
+	oadm policy add-role-to-user system:image-builder developer
+
+	# Log in as developer
+	oc login
+
+	# Log in to the Docker registry
+	docker login -u developer -e unused -p "$(oc whoami -t)" "$(oc get route docker-registry -n default --template='{{ .spec.host }}')"
+
+	# Create passthrough route
+	oc create route passthrough --service registry-console --port registry-console -n default
+
+	# Deploy the registry console
+	oc new-app -n default --template=registry-console \
+	-p OPENSHIFT_OAUTH_PROVIDER_URL="https://192.168.42.77:8443" \
+	-p REGISTRY_HOST="$(oc get route docker-registry -n default --template='{{ .spec.host }}')" \
+	-p COCKPIT_KUBE_URL="$(oc get route registry-console -n default --template='https://{{ .spec.host }}')"
+
+	# Deploy the registry console application.
+	oc new-app -n default --template=registry-console \
+	-p OPENSHIFT_OAUTH_PROVIDER_URL="https://${MASTER_PULIC_URL}:8443" \
+	-p REGISTRY_HOST="$(oc get route docker-registry -n default --template='{{ .spec.host }}')" \
+	-p COCKPIT_KUBE_URL="$(oc get route registry-console -n default --template='https://{{ .spec.host }}')"
+}
+
+function ocp-reg() {
+	oadm registry --service-account=registry \
+	              --config=/etc/origin/master/admin.kubeconfig \
+	              --images='registry.access.redhat.com/openshift3/ose-${component}:${version}'
+}
+
+function ocp-nfs() {
+	# Install dependencies
+	sudo yum -y install rpcbind nfs-utils policycoreutils-python
+
+	# Create export directory
+	md /srv/logging
+	md /srv/metrics
+
+	# Set ownership
+	chown -R nfsnobody:nfsnobody /srv
+
+	# Set permissions
+	chmod -R 777 /srv
+
+	# Enable writing in SELinux on each node
+	setsebool -P virt_use_nfs 1
+
+	# Set IP table rules
+	iptables -I INPUT 1 -p tcp --dport 2049 -j ACCEPT
+	iptables -I INPUT 1 -p tcp --dport 20049 -j ACCEPT
+	iptables -I INPUT 1 -p tcp --dport 111 -j ACCEPT
+
+	# Save IP table rules
+	service iptables save
+
+	# Create an NSFv4 export
+	systemctl start nfs-server
+	systemctl enable nfs-server
+
+	# Add export
+cat <<EOF > /etc/exports
+/srv/logging *(rw,all_squash)
+/srv/metrics *(rw,all_squash)
+EOF
+
+	# Make all chages effective
+	exportfs -r
+
+	# Show available mounts
+	showmount -e localhost
+}
+
+# function ocp-cluster-admin(parameter) {
+# 	#!/bin/bash
+#
+# 	# We will configure named and dhclient using the given domain name and the
+# 	# given IP address, so verify that they are provided and that the IP address
+# 	# can be pinged.
+# 	if test x = x$username || test x = x$password || test x = x$group
+# 	then
+# 	  echo "Usage: username=<username> password=<password> group=<group> $0"
+# 	  exit 1
+# 	fi
+#
+# 	useradd -r -s /bin/false $username
+# 	groupadd $group
+# 	usermod -aG $group $username
+# 	htpasswd -b /etc/origin/master/htpasswd $username $password
+# 	oadm --config=/etc/origin/master/admin.kubeconfig policy add-cluster-role-to-user cluster-admin $username
+# }
+
+# function ocp-bind() {
+# 	ZONES_HOME="/etc/named/zones"
+# 	FORWARDERS_CONF="/var/named/forwarders.conf"
+# 	LOCAL_NAMED_CONF="/etc/named/named.conf.local"
+# 	DHCLIENT_CONF="/etc/dhcp/dhclient-eth0.conf"
+#
+# 	set -e
+# 	# We will configure named and dhclient using the given domain name and the
+# 	# given IP address, so verify that they are provided and that the IP address
+# 	# can be pinged.
+#
+# 	if test x = x$domain || test x = x$ip_addr || test x = x$ip_rev
+# 	then
+# 	echo "Usage: domain=<domain> ip_addr=<ip-address> ip_rev=<ip-rev-address> $0"
+# 	echo "Example: domain=example.com ip_addr=10.4.59.42 $0"
+# 	exit 1
+# 	fi
+#
+# 	if ! ping -c 1 $ip_addr >/dev/null 2>&1
+# 	then
+# 	echo "Could not ping given IP address: $ip_addr"
+# 	exit 2
+# 	fi
+#
+# 	echo; echo 'Installing the BIND packages...'; echo
+# 	yum -y install bind bind-utils lokkit
+#
+# 	# We will configure named to use the keyfile at the following location, which
+# 	# is based on the domain name.
+#
+# 	keyfile=/var/named/${domain}.key
+#
+# 	# The DNSSEC key will be located in /var/named, so change to that directory
+# 	# now.
+# 	pushd /var/named
+# 	echo; echo 'Generating DNSSEC key...'; echo
+# 	rm -f K${domain}*
+# 	dnssec-keygen -a HMAC-MD5 -b 512 -n USER -r /dev/urandom ${domain}
+# 	KEY="$(grep Key: K${domain}*.private | cut -d ' ' -f 2)"
+# 	popd
+#
+# 	echo; echo 'Generating RNDC key...'; echo
+# 	rndc-confgen -a -r /dev/urandom
+#
+# 	# Ensure that the RNDC key and BIND configuration files have proper ownership,
+# 	# UNIX permissions, and SELinux contexts.
+# 	echo; echo 'Setting ownership, permissions, and SELinux contexts...'; echo
+# 	restorecon -v /etc/rndc.* /etc/named.*
+# 	chown -v root:named /etc/rndc.key
+# 	chmod -v 640 /etc/rndc.key
+#
+# 	# 8.8.8.8 and 8.8.4.4 are DNS servers provided by Google for general public
+# 	# use.
+# 	echo; echo 'Configuring forwarders...'; echo
+# 	echo "forwarders { 8.8.8.8; 8.8.4.4; } ;" > ${FORWARDERS_CONF}
+#
+# 	# Ensure that forwarders has proper UNIX permissions and SELinux contexts.
+# 	echo; echo 'Setting permissions and SELinux contexts...'; echo
+# 	restorecon -v ${FORWARDERS_CONF}
+# 	chmod -v 755 ${FORWARDERS_CONF}
+#
+# 	# Create a directory for BIND to store its database, after deleting any
+# 	# existing directory that may exist.
+# 	echo; echo 'Creating initial BIND database...'; echo
+# 	rm -rvf ${ZONES_HOME}
+# 	mkdir -vp ${ZONES_HOME}
+#
+# # Configure bind zones location file.
+# echo; echo 'Creating local conf file...'; echo
+# cat <<EOF > ${LOCAL_NAMED_CONF}
+# zone "${domain}" {
+# type master;
+# file "${ZONES_HOME}/${domain}.db";
+# allow-update { key ${domain}; };
+#
+# };
+#
+# zone "${ip_rev}.in-addr.arpa" {
+# type master;
+# file "${ZONES_HOME}/${ip_rev}.in-addr.arpa.db";
+# allow-update { key ${domain}; };
+# };
+# EOF
+#
+# echo; echo 'Creating forward zone file...'; echo
+# cat <<EOF > ${ZONES_HOME}/${domain}.db
+# \$TTL    604800
+# @       IN      SOA     ns1.${domain}. admin.${domain}. (
+# 2011112904     ; Serial
+# 604800     ; Refresh
+# 86400     ; Retry
+# 2419200     ; Expire
+#
+# 604800 )   ; Negative Cache TTL
+# ;
+# ; name servers - NS records
+# IN      NS      ns1.${domain}.
+# IN      NS      ns2.${domain}.
+#
+# ; name servers - A records
+# ns1.${domain}.          IN      A       192.168.0.100
+# ns2.${domain}.          IN      A       192.168.0.251
+#
+# ; 192.168.0.0/16 - A records
+# host1.${domain}.        IN      A      192.168.0.100
+# host2.${domain}.        IN      A      192.168.0.251
+# EOF
+#
+# echo; echo 'Creating reverse zone file...'; echo
+# cat <<EOF > ${ZONES_HOME}/${ip_rev}.in-addr.arpa.db
+# \$TTL    604800
+# @       IN      SOA     ns1.${domain}. admin.${domain}. (
+# 1         ; Serial
+# 604800         ; Refresh
+# 86400         ; Retry
+# 2419200         ; Expire
+# 604800 )       ; Negative Cache TTL
+#
+# ; name servers
+#
+# IN      NS      ns1.example.com.
+# IN      NS      ns2.example.com.
+#
+# ; PTR Records
+# 100.0 IN      PTR     ns1.example.com.    ; 192.168.0.100
+# 251.0 IN      PTR     ns2.example.com.    ; 192.168.0.251
+# 201.0 IN      PTR     host1.example.com.  ; 192.168.0.201
+# 202.0 IN      PTR     host2.example.com.  ; 192.168.0.202
+# EOF
+#
+# # Configure BIND to use the DNSSEC key we generated above.
+# echo; echo 'Configuring BIND...'; echo
+# cat <<EOF > /var/named/${domain}.key
+# key ${domain} {
+# algorithm HMAC-MD5;
+# secret "${KEY}";
+# };
+# EOF
+#
+# # Ensure that the BIND data files have proper UNIX permissions and SELinux
+# # contexts.
+# chown -Rv named:named /var/named
+# restorecon -rv /var/named
+#
+# # Create the main configuration file for BIND.
+# cat <<EOF > /etc/named.conf
+# // named.conf
+#
+# options {
+# listen-on port 53 { 127.0.0.1; 192.168.0.100; };
+# # listen-on-v6 port 53 { ::1; };
+# directory   "/var/named";
+# dump-file   "/var/named/data/cache_dump.db";
+# statistics-file "/var/named/data/named_stats.txt";
+# memstatistics-file "/var/named/data/named_mem_stats.txt";
+# allow-transfer { 192.168.0.251; };
+# allow-query { trusted; };
+# recursion yes;
+#
+# /* Path to ISC DLV key. */
+# bindkeys-file "/etc/named.iscdlv.key";
+#
+#
+# // Set forwarding to the next nearest server from DHCP response.
+# forward only;
+# include "forwarders.conf";
+# };
+#
+# logging {
+# channel default_debug {
+# file "data/named.run";
+# severity dynamic;
+# };
+#
+# };
+#
+# acl "trusted" {
+# 192.168.0.100;  # ns1 (localhost)
+# 192.158.0.251;  # ns2
+# 192.168.0.201;  # host1
+# 192.168.0.202;  # host2
+# };
+#
+# // Use the default rndc key.
+# include "/etc/rndc.key";
+#
+# controls {
+# inet 127.0.0.1 port 953
+# allow { 127.0.0.1; } keys { "rndc-key"; };
+# };
+#
+# include "/etc/named.rfc1912.zones";
+# include "${domain}.key";  // DNSSEC keyfile
+# include "/etc/named/named.conf.local";
+# EOF
+#
+# # Ensure that this file has correct ownership and SELinux context.
+# echo; echo 'Setting permissions and SELinux contexts...'; echo
+# chown -v root:named /etc/named.conf
+# restorecon /etc/named.conf
+#
+# # Set named directory access permissions
+# chmod 755 /etc/named
+#
+# # Configure the host to use the local BIND server, which we have just
+#
+# # configured, as its primary nameserver.
+# #chattr -i /etc/resolv.conf
+# echo; echo 'Configuring resolv.conf...'; echo
+# mv -f /etc/resolv.conf /etc/resolv.conf.orig
+# echo 'nameserver 127.0.0.1' > /etc/resolv.conf
+# #chattr +i /etc/resolv.conf
+#
+# # Ensure that remote hosts (e.g., the node host) can connect to the BIND server
+# # running on this host.
+# echo; echo 'Configuring firewall...'; echo
+# lokkit --service=dns
+#
+# # Ensure that the BIND server starts when this host is rebooted.
+# echo; echo 'Configuring named to start on boot...'; echo
+# chkconfig named on
+#
+# # Start the BIND server now.
+# echo; echo 'Starting named...'; echo
+# service named start
+#
+# # Add a DNS entry for master.${domain}.com pointing to this host.
+# echo; echo 'Adding the master host to BIND database...'; echo
+# nsupdate -k ${keyfile} <<EOF
+# server 127.0.0.1
+# update delete master.${domain} A
+# update add master.${domain} 180 A ${ip_addr}
+# send
+# EOF
+#
+# # Configure the DHCP client to preserve thechanges to resolv.conf and set the
+# # correct hostname.
+# echo; echo 'Configuring the DHCP client...'; echo
+# cat <<EOF > /etc/dhcp/dhclient-eth0.conf
+# prepend domain-name-servers ${ip_addr};
+# supersede host-name "master";
+# supersede domain-name "${domain}";
+# EOF
+#
+# 	echo; echo 'Configuring the hostname...'; echo
+# 	sed -i -e "s/HOSTNAME=.*/HOSTNAME=master.${domain}/" /etc/sysconfig/network
+# 	hostname "master.${domain}"
+#
+# 	echo; echo 'Restarting network...'; echo
+# 	systemctl restart network.service
+#
+# 	echo; echo 'Script execution is complete.'
+# }
+
+function ocp-resolv() {
+	FILE=/etc/resolv.conf
+	WIFI=
+
+	echo -n "root@$HOSTNAME"; su - root -c "sed -i '/127.0.0.1/c \#127.0.0.1' $FILE
+	                                        echo 8.8.8.8 >> $FILE
+	                                        chattr +i $FILE
+	                                        ifdown $WIFI
+	                                        ifup $WIFI"
+
+}
+
+function ocp-maven() {
+	# Create new project
+	oc new-project maven-pipeline
+
+	# Create a pipeline
+	oc new-app https://raw.githubusercontent.com/openshift/origin/master/examples/jenkins/pipeline/maven-pipeline.yaml
+
+	# View/Manage Jenkins (optional)
+	oc annotate sa/jenkins serviceaccounts.openshift.io/oauth-redirecturi.1=http://"$(oc get routes | grep 'jenkins' | awk '{print $2}')":/securityRealm/finishLogin --overwrite
+
+	# Launch new build
+	oc start-build sample-pipeline
+
+}
+
+function ocp-jenkins() {
+	# Create new project
+	oc new-project jenkins
+
+	# Instantiate Jenkins
+	oc new-app jenkins-ephemeral
+
+	# View/Manage Jenkins
+	oc annotate sa/jenkins serviceaccounts.openshift.io/oauth-redirecturi.1=http://"$(oc get routes | grep 'jenkins' | awk '{print $2}')":/securityRealm/finishLogin --overwrite
+}
+
+function ocp-pipeline() {
+	# Create new project
+	oc new-project pipeline
+
+	# Create a pipeline
+	oc new-app jenkins-pipeline-example
+
+	# View/Manage Jenkins (optional)
+	oc annotate sa/jenkins serviceaccounts.openshift.io/oauth-redirecturi.1=http://"$(oc get routes | grep 'jenkins' | awk '{print $2}')":/securityRealm/finishLogin --overwrite
+
+	# Launch new build
+	oc start-build sample-pipeline
+}
+
+function ocp-abtest() {
+	oc new-app \
+	   https://github.com/kyle-benson/ocp-nodejs-demo.git#b69a1b0f0c3195baa0dbd2ff600f8bebc38c7ade \
+	   --name='appa'
+
+	oc expose svc/appa --name="appab" -l app=appab
+
+	while true; do curl "$(oc get -o jsonpath="{.spec.host}" route appab)" && echo && sleep 5; done
+
+	oc annotate route/appab haproxy.router.openshift.io/balance=roundrobin
+
+	oc new-app https://github.com/kyle-benson/ocp-nodejs-demo.git --name="appb"
+
+}

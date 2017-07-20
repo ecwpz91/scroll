@@ -1,0 +1,39 @@
+#!/bin/bash
+
+MINISHIFT_USERNAME="${MINISHIFT_USERNAME:-"INSERT_VALUE_HERE"}" # Red Hat Subscription Manager (RHSM) username
+MINISHIFT_PASSWORD="${MINISHIFT_PASSWORD:-"INSERT_VALUE_HERE"}" # RHSM password
+MSBINARY="${MSBINARY:-"~/Downloads/cdk-3.0.beta-minishift-linux-amd64"}"
+
+# Install libvirt and qemu-kvm
+sudo yum install libvirt qemu-kvm
+
+# Add yourself to the libvirt group so that you do not need to sudo
+sudo usermod -a -G libvirt $USER
+
+# Install Docker Machine
+curl -L "https://github.com/docker/machine/releases/download/v0.10.0/docker-machine-`uname -s`-`uname -m`" >/tmp/docker-machine && \
+     chmod +x /tmp/docker-machine && \
+     sudo mv /tmp/docker-machine /usr/local/bin/docker-machine
+
+# Install Docker Machine KVM driver
+curl -L https://github.com/dhiltgen/docker-machine-kvm/releases/download/v0.8.2/docker-machine-driver-kvm >/tmp/docker-machine-driver-kvm && \
+     chmod +x /tmp/docker-machine-driver-kvm && \
+     sudo mv /tmp/docker-machine-driver-kvm /usr/local/bin/docker-machine-driver-kvm
+
+# Get content delivery network server cookies
+# wget --save-cookies cookies.txt \
+#      --keep-session-cookies \
+#      --post-data "user=${MINISHIFT_USERNAME}&passwrd=${MINISHIFT_PASSWORD}" \
+#      --delete-after \
+#      - 'https://sso.jboss.org/login'
+
+# Setup binary from JBoss Deverlopers website
+# sudo wget --load-cookies cookies.txt \
+#      https://developers.redhat.com/download-manager/file/cdk-3.0.beta-minishift-linux-amd64 -O /usr/bin/minishift
+
+# Install Minishift binary
+sudo mv ${MSBINARY} /usr/bin/minishift && sudo chmod +x /usr/bin/minishift
+
+# Export RHSM credentials
+echo "export MINISHIFT_USERNAME=${MINISHIFT_USERNAME}" >> ~/.bashrc
+echo "export MINISHIFT_PASSWORD=${MINISHIFT_PASSWORD}" >> ~/.bashrc

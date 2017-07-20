@@ -1,0 +1,72 @@
+#!/bin/bash
+
+function setup-awsenvs() {
+	touch ~/.aws/ec2
+
+cat <<EOF >> ~/.aws/ec2
+	# All instances
+	# export EC2_ASSIGN_PULBIC_IP=true
+	# export EC2_INSTANCE_TYPE=
+	# export EC2_IMAGE=
+	# export EC2_KEYPAIR=
+	# export EC2_REGION=
+	# export EC2_SECURITY_GROUPS=[public]
+	# export EC2_VPC_SUBNET=
+
+	# Master instances
+	# export EC2_MASTER_INSTANCE_TYPE=
+	# export OS_MASTER_ROOT_VOL_SIZE=20
+	# export OS_MASTER_ROOT_VOL_TYPE=standard
+
+	# Infra instances
+	# export EC2_INFRA_INSTANCE_TYPE=m4.large
+
+	# Node instances
+	# export EC2_NODE_INSTANCE_TYPE=
+	# export OS_NODE_ROOT_VOL_SIZE=15
+
+	# Etcd instances
+	# export EC2_ETCD_INSTANCE_TYPE=
+	# export OS_ETCD_ROOT_VOL_SIZE=20
+	# export OS_ETCD_ROOT_VOL_TYPE=standard
+	# export OS_ETCD_VOL_SIZE=20
+	# export OS_ETCD_VOL_TYPE=standard
+
+	# Docker
+	# export OS_DOCKER_VOL_SIZE=50
+	# export OS_DOCKER_VOL_EMPHEMERAL=false
+EOF
+
+	chmod 600 ~/.aws/ec2
+}
+
+function setup-awszone() {
+	mkdir -p /etc/aws
+	touch /etc/aws/aws.conf
+
+cat <<EOF >> /etc/aws/aws.conf
+	[Global]
+	Zone =
+EOF
+
+	chmod 600 /etc/aws/aws.conf
+}
+
+function install-awscli() {
+	# Install awscli dependencies
+	sudo yum -y install python-pip python-boto pyOpenSSL --enablerepo=epel
+
+	# Install AWS CLI
+	sudo pip install awscli
+
+	# Enable command completion
+	sudo complete -C '/usr/bin/aws_completer' aws
+}
+
+function patch-awscli() {
+	# Upgrade python-pip
+	sudo pip install --upgrade pip
+
+	# Upgrade awscli
+	sudo pip install --upgrade awscli
+}

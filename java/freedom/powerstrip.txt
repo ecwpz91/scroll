@@ -1,0 +1,11 @@
+Describe a powerstrip
+
+	states
+		on/off	
+
+	behaviors
+		turning on/off
+		plugged in/not plugged in
+
+	interface
+		the powerstrips switch is an interface for the world to interact

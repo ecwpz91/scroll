@@ -1,0 +1,33 @@
+#!/bin/bash
+
+function guetzli() {
+  local image=docker.io/ecwpz91/guetzli
+
+  if [[ "$(docker images -q ${image}:latest 2> /dev/null)" == "" ]]; then
+    docker pull ${image}:latest
+  fi
+
+  local inp_file=${1:-}; shift || return 1
+  local jpg_file=${PWD}/${inp_file%.*}.jpg
+  local fileperm
+  local filename
+
+  if [[ ! -f ${jpg_file} ]]; then
+    echo "file not found"
+
+    exit 1
+  fi
+
+  filename=$(basename $jpg_file)
+  fileperm=$(stat -c "%a" $jpg_file)
+
+  # Change file permissions
+  chmod a+rw ${jpg_file}
+
+  # Execute guetzli
+  docker run --rm -v ${jpg_file}:/opt/app-root/src/${filename}:Z \
+         ${image} /bin/bash -c "guetzli --verbose ${filename} ${filename}"
+
+  # Revert file permissions
+  chmod ${fileperm} ${jpg_file}
+}

@@ -1,0 +1,244 @@
+:~$ cd workspace
+:~$ cd project3
+:~$ cd src
+:~$ javac Driver.java
+:~$ java Driver
+File contents successfully loaded.
+
+****************************
+*Direct Access File Program*
+****************************
+(I)nsert new record
+(F)ind record
+(Q)uit
+
+What would you like to do? find
+Search for: Sill, Mount
+
+Sill, Mount, United States, altitude: 14153 ft.
+
+****************************
+*Direct Access File Program*
+****************************
+(I)nsert new record
+(F)ind record
+(Q)uit
+
+What would you like to do? f
+Search for: Silly, Mount
+
+Sorry, but that record does not exist.
+
+****************************
+*Direct Access File Program*
+****************************
+(I)nsert new record
+(F)ind record
+(Q)uit
+
+What would you like to do? f
+Search for: Everest
+
+Everest, Nepal/Tibet, altitude: 29035 ft.
+
+****************************
+*Direct Access File Program*
+****************************
+(I)nsert new record
+(F)ind record
+(Q)uit
+
+What would you like to do? insert
+Mountain Name: GMU, Mount
+Country: United States
+Altitude: 31000
+
+Record was successfully inserted.
+
+****************************
+*Direct Access File Program*
+****************************
+(I)nsert new record
+(F)ind record
+(Q)uit
+
+What would you like to do? i
+Mountain Name: Hooha Peak
+Country: United        Canada
+Altitude: 3
+
+Record was successfully inserted.
+
+****************************
+*Direct Access File Program*
+****************************
+(I)nsert new record
+(F)ind record
+(Q)uit
+
+What would you like to do? find
+Search for: Gm MU, Mount
+
+GMU, Mount, United States, altitude: 31000 ft.
+
+****************************
+*Direct Access File Program*
+****************************
+(I)nsert new record
+(F)ind record
+(Q)uit
+
+What would you like to do? insert
+Mountain Name: Snargle 1, Mount
+Country: United States
+Altitude: 237
+
+Record was successfully inserted.
+
+****************************
+*Direct Access File Program*
+****************************
+(I)nsert new record
+(F)ind record
+(Q)uit
+
+What would you like to do? i
+Mountain Name: Snargle 2, Mount
+Country: Luxembourg
+Altitude: 29334
+
+Record was successfully inserted.
+
+****************************
+*Direct Access File Program*
+****************************
+(I)nsert new record
+(F)ind record
+(Q)uit
+
+What would you like to do? i
+Mountain Name: Snargle 3, Mount
+Country: Thailand
+Altitude: 0
+
+Record was successfully inserted.
+
+****************************
+*Direct Access File Program*
+****************************
+(I)nsert new record
+(F)ind record
+(Q)uit
+
+What would you like to do? i
+Mountain Name: Snargle 4, Mount
+Country: Detriot
+Altitude: 200
+
+Record was successfully inserted.
+
+****************************
+*Direct Access File Program*
+****************************
+(I)nsert new record
+(F)ind record
+(Q)uit
+
+What would you like to do? i
+Mountain Name: Snargle 5, Mount
+Country: Hole in the Groyu  und
+Altitude: -7
+
+Record was successfully inserted.
+
+****************************
+*Direct Access File Program*
+****************************
+(I)nsert new record
+(F)ind record
+(Q)uit
+
+What would you like to do? i
+Mountain Name: Snargle 6, Mount
+Country: Guinea-Bissau
+Altitude: 10110
+
+Record was successfully inserted.
+
+****************************
+*Direct Access File Program*
+****************************
+(I)nsert new record
+(F)ind record
+(Q)uit
+
+What would you like to do? i
+Mountain Name: Snargle Mount 7  , 7          7, Mount
+Country: Uruguay
+Altitude: 888
+
+Record was successfully inserted.
+
+****************************
+*Direct Access File Program*
+****************************
+(I)nsert new record
+(F)ind record
+(Q)uit
+
+What would you like to do? i
+Mountain Name: Snargle 8, Mount
+Country: C Mars
+Altitude: 20682
+
+Record was successfully inserted.
+
+****************************
+*Direct Access File Program*
+****************************
+(I)nsert new record
+(F)ind record
+(Q)uit
+
+What would you like to do? i
+Mountain Name: Snargle 9, Mount
+Country: Canaf da
+Altitude: 3
+
+Record was successfully inserted.
+
+****************************
+*Direct Access File Program*
+****************************
+(I)nsert new record
+(F)ind record
+(Q)uit
+
+What would you like to do? i
+Mountain Name: Snargle 10, Mount
+Country: Delaware
+Altitude: 14010
+
+Record was successfully inserted.
+
+****************************
+*Direct Access File Program*
+****************************
+(I)nsert new record
+(F)ind record
+(Q)uit
+
+What would you like to do? find
+Search for: Snargle 10, Mount
+
+Snargle 10, Mount, Delaware, altitude: 14010 ft.
+
+****************************
+*Direct Access File Program*
+****************************
+(I)nsert new record
+(F)ind record
+(Q)uit
+
+What would you like to do? q
+
