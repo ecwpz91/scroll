@@ -2,6 +2,8 @@
 
 #include <stdio.h>
 
+#define CUBIC_IN_PER_LB 166
+
 int main() {
 	int height, length, width, volume, weight;
 
@@ -13,8 +15,10 @@ int main() {
 	scanf("%d", &width);
 
 	volume = height * length * width;
-	weight = (volume + 165) / 166;
-	
+
+	/* Example macro definition using define preprocessor directive */
+	weight = (volume + CUBIC_IN_PER_LB - 1) / CUBIC_IN_PER_LB;
+
 	printf("Volume (cubic inches): %d\n", volume);
 	printf("Dimensional weight (pounds): %d\n", weight);
 
