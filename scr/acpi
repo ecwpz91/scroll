@@ -1,0 +1,47 @@
+#!/bin/bash
+
+function absolute_path() {
+	local relative_path="$1"
+	local absolute_path
+	pushd "${relative_path}" >/dev/null
+	relative_path="$( pwd )"
+	if [[ -h "${relative_path}" ]]; then
+		absolute_path="$( readlink "${relative_path}" )"
+	else
+		absolute_path="${relative_path}"
+	fi
+	popd >/dev/null
+
+	echo "${absolute_path}"
+}
+readonly -f absolute_path
+
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
+DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+SOURCE="$(readlink "$SOURCE")"
+[[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE" # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+done
+DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+DIR_ABSOLUTE_PATH="$(absolute_path "$DIR")"
+
+PACKAGE_MANPAGE=/usr/share/acpi
+INSTALL="make && make install"
+LOAD="make load"
+CLEAN="make clean"
+
+echo -n "root@$HOSTNAME "; su - root -c "cd $DIR_ABSOLUTE_PATH
+
+                                         $INSTALL
+
+                                         mkdir -p $PACKAGE_MANPAGE
+                                         cp -favv README.md examples support $PACKAGE_MANPAGE
+
+                                         if [ -x /sbin/depmod ]; then
+                                           /sbin/depmod -a ${KERNEL:-"$(uname -r)"} 1> /dev/null 2> /dev/null
+                                         fi
+
+                                         $LOAD
+
+                                         $CLEAN
+                                         "
